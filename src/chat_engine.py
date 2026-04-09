@@ -12,12 +12,18 @@ Message history format (neutral, provider-agnostic):
   {"role": "assistant", "content": "..."}                        ← final answer
 """
 
+from collections.abc import Callable
+from typing import Optional
+
 from src.config import Config
 from src.dispatcher import Dispatcher
-from src.llm.base import LLMProvider, LLMResponse
+from src.llm.base import LLMProvider, LLMResponse, ToolCall
 from src.logger import get_logger
 
 logger = get_logger(__name__)
+
+# Signature of the optional tool-call notification callback
+OnToolCallFn = Callable[[str, dict], None]  # (tool_name, arguments) -> None
 
 
 class ChatEngine:
@@ -25,12 +31,25 @@ class ChatEngine:
     Manages conversation state and runs the agentic tool-calling loop.
 
     One ChatEngine instance per session — history accumulates across turns.
+
+    Args:
+        llm:         Any LLMProvider implementation.
+        dispatcher:  Dispatcher instance that holds all registered tools.
+        on_tool_call: Optional callback fired just before each tool executes.
+                      Use this to update the UI (e.g. print which tool is running)
+                      without coupling the engine to any display layer.
     """
 
-    def __init__(self, llm: LLMProvider, dispatcher: Dispatcher):
-        self._llm        = llm
-        self._dispatcher = dispatcher
-        self._history: list[dict] = []  # full conversation history, grows each turn
+    def __init__(
+        self,
+        llm: LLMProvider,
+        dispatcher: Dispatcher,
+        on_tool_call: Optional[OnToolCallFn] = None,
+    ):
+        self._llm         = llm
+        self._dispatcher  = dispatcher
+        self._on_tool_call = on_tool_call
+        self._history: list[dict] = []
         self._tools = dispatcher.get_tool_definitions()
 
     # ── public ────────────────────────────────────────────────────────────
@@ -65,15 +84,15 @@ class ChatEngine:
                 return response.content
 
             # LLM wants to call one or more tools
-            logger.info(f"LLM requested {len(response.tool_calls)} tool call(s): "
-                        f"{[tc.name for tc in response.tool_calls]}")
+            logger.info(
+                f"LLM requested {len(response.tool_calls)} tool call(s): "
+                f"{[tc.name for tc in response.tool_calls]}"
+            )
 
             self._append_assistant_message(response)
 
-            # Execute every tool call the LLM requested in this iteration
             for tool_call in response.tool_calls:
-                result = self._dispatcher.execute(tool_call)
-                self._append_tool_result(tool_call.id, result)
+                self._run_tool(tool_call)
 
         # Safety cap reached — ask LLM to wrap up with what it has
         logger.warning(f"Max iterations ({Config.MAX_AGENT_ITERATIONS}) reached — forcing final answer")
@@ -89,6 +108,14 @@ class ChatEngine:
         return self._history
 
     # ── private ───────────────────────────────────────────────────────────
+
+    def _run_tool(self, tool_call: ToolCall):
+        """Notify the UI, execute the tool, append the result to history."""
+        if self._on_tool_call:
+            self._on_tool_call(tool_call.name, tool_call.arguments)
+
+        result = self._dispatcher.execute(tool_call)
+        self._append_tool_result(tool_call.id, result)
 
     def _append_assistant_message(self, response: LLMResponse):
         """
