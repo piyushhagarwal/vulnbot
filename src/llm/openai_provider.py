@@ -5,16 +5,9 @@ from config import Config
 from logger import get_logger
 from llm.base import LLMProvider, LLMResponse, ToolCall
 
+from llm.prompts import SYSTEM_PROMPT
+
 logger = get_logger(__name__)
-
-SYSTEM_PROMPT = (
-    "You are a cybersecurity expert assistant specializing in vulnerability analysis. "
-    "You have access to tools that query the National Vulnerability Database (NVD) "
-    "and MITRE ATT&CK framework. "
-    "Use them as many times as needed to give a thorough, accurate answer. "
-    "When you have enough information, respond clearly and concisely to the user."
-)
-
 
 class OpenAIProvider(LLMProvider):
     """LLM provider backed by OpenAI GPT models."""
