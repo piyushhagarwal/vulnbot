@@ -1,11 +1,11 @@
 import json
 import openai
 
-from config import Config
-from logger import get_logger
-from llm.base import LLMProvider, LLMResponse, ToolCall
+from src.config import Config
+from src.logger import get_logger
+from src.llm.base import LLMProvider, LLMResponse, ToolCall
 
-from llm.prompts import SYSTEM_PROMPT
+from src.llm.prompts import SYSTEM_PROMPT
 
 logger = get_logger(__name__)
 
@@ -58,8 +58,11 @@ class OpenAIProvider(LLMProvider):
                     name=tc.function.name,
                     arguments=json.loads(tc.function.arguments),
                 ))
+                
+        raw_message = message.model_dump() if message.tool_calls else None  # ← this line
 
         return LLMResponse(
             content=message.content or "",
             tool_calls=tool_calls,
+            raw_assistant_message=raw_message,
         )

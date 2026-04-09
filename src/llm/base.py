@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from typing import Optional
 
 
 @dataclass
@@ -20,6 +21,7 @@ class LLMResponse:
     """
     content: str
     tool_calls: list[ToolCall] = field(default_factory=list)
+    raw_assistant_message: Optional[dict] = field(default=None)
 
     @property
     def is_final_answer(self) -> bool:
