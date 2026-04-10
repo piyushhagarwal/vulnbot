@@ -1,5 +1,7 @@
 # Vuln Chatbot
 
+> For a complete deep-dive into architecture, theory, and implementation, see [DOCUMENTATION.md](DOCUMENTATION.md).
+
 - A CLI-based agentic chatbot for querying vulnerability databases using natural language. 
 - Ask questions about CVEs, MITRE ATT&CK techniques, and attack patterns, the agent autonomously decides which tools to call, chains multiple queries when needed, and synthesizes a comprehensive answer.
 
